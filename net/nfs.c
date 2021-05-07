@@ -148,7 +148,6 @@ static int	nfs_state;
 
 static char *nfs_filename;
 static char *nfs_path;
-static char nfs_path_buff[2048];
 
 static int net_store_fd;
 static struct net_connection *nfs_con;
@@ -522,11 +521,26 @@ static int nfs_readlink_reply(unsigned char *pkt, unsigned len)
 	path = (char *)data;
 
 	if (*path != '/') {
-		strcat(nfs_path, "/");
-		strncat(nfs_path, path, rlen);
+		char *n;
+
+		n = calloc(strlen(nfs_path) + sizeof('/') + rlen + 1, 1);
+		if (!n)
+			return -ENOMEM;
+
+		strcpy(n, nfs_path);
+		strcat(n, "/");
+		strncat(n, path, rlen);
+
+		free(nfs_path);
+		nfs_path = n;
 	} else {
+		free(nfs_path);
+
+		nfs_path = calloc(rlen + 1, 1);
+		if (!nfs_path)
+			return -ENOMEM;
+
 		memcpy(nfs_path, path, rlen);
-		nfs_path[rlen] = 0;
 	}
 	return 0;
 }
@@ -655,13 +669,13 @@ err_out:
 	nfs_err = ret;
 }
 
-static void nfs_start(char *p)
+static int nfs_start(char *p)
 {
 	debug("%s\n", __func__);
 
-	nfs_path = (char *)nfs_path_buff;
-
-	strcpy(nfs_path, p);
+	nfs_path = strdup(p);
+	if (nfs_path)
+		return -ENOMEM;
 
 	nfs_filename = basename (nfs_path);
 	nfs_path     = dirname (nfs_path);
@@ -671,6 +685,8 @@ static void nfs_start(char *p)
 	nfs_state = STATE_PRCLOOKUP_PROG_MOUNT_REQ;
 
 	nfs_send();
+
+	return 0;
 }
 
 static int do_nfs(int argc, char *argv[])
@@ -701,9 +717,9 @@ static int do_nfs(int argc, char *argv[])
 	}
 	net_udp_bind(nfs_con, 1000);
 
-	nfs_err = 0;
-
-	nfs_start(remotefile);
+	nfs_err = nfs_start(remotefile);
+	if (nfs_err)
+		goto err_udp;
 
 	while (nfs_state != STATE_DONE) {
 		if (ctrlc()) {
@@ -726,6 +742,9 @@ err_udp:
 	}
 
 	printf("\n");
+
+	free(nfs_path);
+	nfs_path = NULL;
 
 	return nfs_err == 0 ? 0 : 1;
 }
