@@ -126,7 +126,7 @@ int pr_print(int level, const char *fmt, ...)
 		return 0;
 
 	va_start(args, fmt);
-	i = vsprintf(printbuffer, fmt, args);
+	i = vsnprintf(printbuffer, CFG_PBSIZE, fmt, args);
 	va_end(args);
 
 	pr_puts(level, printbuffer);
@@ -144,13 +144,13 @@ int dev_printf(int level, const struct device_d *dev, const char *format, ...)
 		return 0;
 
 	if (dev->driver && dev->driver->name)
-		ret += sprintf(printbuffer, "%s ", dev->driver->name);
+		ret += snprintf(printbuffer, CFG_PBSIZE - ret, "%s ", dev->driver->name);
 
-	ret += sprintf(printbuffer + ret, "%s: ", dev_name(dev));
+	ret += snprintf(printbuffer + ret, CFG_PBSIZE - ret, "%s: ", dev_name(dev));
 
 	va_start(args, format);
 
-	ret += vsprintf(printbuffer + ret, format, args);
+	ret += vsnprintf(printbuffer + ret, CFG_PBSIZE - ret, format, args);
 
 	va_end(args);
 
@@ -255,7 +255,7 @@ int printf(const char *fmt, ...)
 	 * For this to work, printbuffer must be larger than
 	 * anything we ever want to print.
 	 */
-	i = vsprintf (printbuffer, fmt, args);
+	i = vsnprintf(printbuffer, CFG_PBSIZE, fmt, args);
 	va_end(args);
 
 	/* Print the string */
@@ -274,7 +274,7 @@ int vprintf(const char *fmt, va_list args)
 	 * For this to work, printbuffer must be larger than
 	 * anything we ever want to print.
 	 */
-	i = vsprintf(printbuffer, fmt, args);
+	i = vsnprintf(printbuffer, CFG_PBSIZE, fmt, args);
 
 	/* Print the string */
 	puts(printbuffer);
@@ -362,7 +362,7 @@ int dprintf(int file, const char *fmt, ...)
 	 * For this to work, printbuffer must be larger than
 	 * anything we ever want to print.
 	 */
-	vsprintf(printbuffer, fmt, args);
+	vsnprintf(printbuffer, CFG_PBSIZE, fmt, args);
 	va_end(args);
 
 	/* Print the string */
